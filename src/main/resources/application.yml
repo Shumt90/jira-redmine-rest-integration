@@ -1,6 +1,6 @@
 app:
   redmine:
     base-url: https://task.finch.fm
-    key-path: D:\jp\redmine-key.txt
+    key-path: l
   jira:
-    oauthPropertyPath: E:\atlassian-oauth-examples\java\config.properties
+    oauthPropertyPath: /media/alexandr/UUI/atlassian-oauth-examples/java/config.properties
