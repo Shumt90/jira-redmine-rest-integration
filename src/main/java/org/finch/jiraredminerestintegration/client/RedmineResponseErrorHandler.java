@@ -1,4 +1,4 @@
-package org.finch.jiraredminerestintegration.redmineclient;
+package org.finch.jiraredminerestintegration.client;
 
 import org.springframework.http.client.ClientHttpResponse;
 import org.springframework.web.client.ResponseErrorHandler;

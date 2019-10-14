@@ -9,5 +9,5 @@ public class SearchResult {
     private int startAt;
     private int maxResults;
     private int total;
-    private List<Issue> issues;
+    private List<JiraIssue> issues;
 }

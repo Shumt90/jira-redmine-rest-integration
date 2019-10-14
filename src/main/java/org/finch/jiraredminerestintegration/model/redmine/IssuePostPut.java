@@ -5,6 +5,6 @@ import lombok.Data;
 
 @Data
 @Builder
-public class IssueCretion {
+public class IssuePostPut {
     private CreationRedmineTask issue;
 }

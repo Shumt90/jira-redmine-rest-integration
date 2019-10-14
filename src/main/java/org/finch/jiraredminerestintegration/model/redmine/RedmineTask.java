@@ -16,6 +16,7 @@ public class RedmineTask {
     private IdNameValue status;
     private IdNameValue priority;
     private IdNameValue author;
+    private String title;
 
     @JsonProperty("assigned_to")
     private IdNameValue assignedTo;

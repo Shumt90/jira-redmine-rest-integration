@@ -6,12 +6,11 @@ import lombok.Data;
 import java.util.List;
 
 @Data
-public class Issue {
-    private List<RedmineTask> issues;
-    private Integer limit;
-    private Integer offset;
-
+public class SearchResult {
+    private List<RedmineTask> results;
     @JsonProperty("total_count")
-    private Integer totalCount;
+    private int totalCount;
+    private int offset;
+    private int limit;
 
 }

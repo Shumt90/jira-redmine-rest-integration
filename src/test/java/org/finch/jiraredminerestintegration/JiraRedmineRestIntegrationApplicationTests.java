@@ -1,22 +1,24 @@
 package org.finch.jiraredminerestintegration;
 
-import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.google.api.client.http.HttpResponse;
 import lombok.SneakyThrows;
-import org.finch.jiraredminerestintegration.model.jira.Issue;
-import org.finch.jiraredminerestintegration.model.jira.SearchResult;
-import org.finch.jiraredminerestintegration.model.jira.WorkLogList;
-import org.finch.jiraredminerestintegration.oauth1Client.OAuthClient;
+import org.finch.jiraredminerestintegration.client.JiraClient;
+import org.finch.jiraredminerestintegration.client.RedmineClient;
+import org.finch.jiraredminerestintegration.service.JiraRedmineIntegration;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.test.context.junit4.SpringRunner;
 
+import java.net.URLDecoder;
 import java.net.URLEncoder;
 import java.nio.charset.StandardCharsets;
+import java.time.Instant;
+import java.time.temporal.ChronoUnit;
+import java.util.Date;
 
+import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertTrue;
 
 @RunWith(SpringRunner.class)
@@ -24,27 +26,26 @@ import static org.junit.Assert.assertTrue;
 public class JiraRedmineRestIntegrationApplicationTests {
 
     @Autowired
-    private OAuthClient authClient;
+    private ObjectMapper objectMapper;
 
     @Autowired
-    private ObjectMapper objectMapper;
+    private RedmineClient client;
+
+    @Autowired
+    private JiraClient jiraClient;
+
+    @Autowired
+    private JiraRedmineIntegration jiraRedmineIntegration;
 
     @Test
     @SneakyThrows
     public void connectionTest() {
 
-        HttpResponse httpResponse = authClient.handleGetRequest("http://jira.stoloto.ru/rest/api/latest/project");
-
-
-        JsonNode jsonNode = objectMapper.readTree(httpResponse.parseAsString());
-
-
-        assertTrue(jsonNode.isArray());
-
+        assertTrue(jiraClient.isConnected());
 
     }
 
-    @Test
+   /* @Test
     @SneakyThrows
     public void getWorkLog() {
 
@@ -57,9 +58,9 @@ public class JiraRedmineRestIntegrationApplicationTests {
         assertTrue(jsonNode.isArray());
 
 
-    }
+    }*/
 
-    @Test
+/*    @Test
     @SneakyThrows
     public void getJiraWorkLog() {
 
@@ -69,21 +70,15 @@ public class JiraRedmineRestIntegrationApplicationTests {
         WorkLogList workLogList = objectMapper.readValue(httpResponse.parseAsString(), WorkLogList.class);
 
 
-    }
+    }*/
 
     @Test
     @SneakyThrows
-    public void search() {
+    public void sync() {
 
-        String jql = URLEncoder.encode("issuekey = S24-969", StandardCharsets.UTF_8);
+        Instant date = Instant.now().minus(1, ChronoUnit.HOURS);
 
-        HttpResponse httpResponse = authClient.handleGetRequest("http://jira.stoloto.ru/rest/api/2/search?jql=" + jql);
-
-        String resp = httpResponse.parseAsString();
-
-        SearchResult searchResult = objectMapper.readValue(resp, SearchResult.class);
-
-        System.out.println(searchResult);
+        jiraRedmineIntegration.syncIssue(Date.from(date));
 
     }
 
@@ -92,15 +87,29 @@ public class JiraRedmineRestIntegrationApplicationTests {
     public void issue() {
 
 
-        HttpResponse httpResponse = authClient.handleGetRequest("http://jira.stoloto.ru/rest/api/2/issue/S24-1589");
+        jiraClient.getIssue("S24-1589");
 
-        String resp = httpResponse.parseAsString();
+    }
 
-        System.out.println(resp);
+    @Test
+    @SneakyThrows
+    public void redmineTaskExist() {
 
-        Issue issue = objectMapper.readValue(resp, Issue.class);
+        assertTrue(client.searchTask("S24-1526").isPresent());
 
-        System.out.println(issue);
+        assertFalse(client.searchTask("S24-0000").isPresent());
+
+    }
+
+    @Test
+    @SneakyThrows
+    public void upsertTask() {
+
+
+        System.out.println(URLDecoder.decode("updated%20>%20%272019%2F10%2F14%2001%3A52%27", StandardCharsets.UTF_8));
+        System.out.println(URLDecoder.decode("updated+>+%272019%2F10%2F14+01%3A52%27", StandardCharsets.UTF_8));
+        System.out.println(URLEncoder.encode("updated > '2019/10/14 01:52'", StandardCharsets.UTF_8));
+        System.out.println(URLEncoder.encode("updated > '2019/10/14 01:52'", StandardCharsets.UTF_16));
 
     }
 
