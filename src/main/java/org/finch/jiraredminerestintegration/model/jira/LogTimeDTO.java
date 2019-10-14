@@ -1,11 +1,14 @@
-package org.finch.jiraredminerestintegration.model.redmine;
+package org.finch.jiraredminerestintegration.model.jira;
 
 import com.fasterxml.jackson.annotation.JsonProperty;
-import lombok.Builder;
-import lombok.Data;
+import lombok.*;
 
-@Data
 @Builder
+@NoArgsConstructor
+@AllArgsConstructor
+@Getter
+@Setter
+@ToString
 public class LogTimeDTO {
     @JsonProperty("time_entry")
     private TimeEntry timeEntry;

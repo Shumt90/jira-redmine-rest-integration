@@ -10,4 +10,5 @@ public class SearchResult {
     private int maxResults;
     private int total;
     private List<JiraIssue> issues;
+    private List<JiraWorkLog> worklogs;
 }

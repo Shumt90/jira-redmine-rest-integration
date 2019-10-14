@@ -6,10 +6,7 @@ import lombok.SneakyThrows;
 import lombok.extern.slf4j.Slf4j;
 import org.finch.jiraredminerestintegration.model.UserMapping;
 import org.finch.jiraredminerestintegration.model.jira.JiraIssue;
-import org.finch.jiraredminerestintegration.model.redmine.CreationRedmineTask;
-import org.finch.jiraredminerestintegration.model.redmine.IssuePostPut;
-import org.finch.jiraredminerestintegration.model.redmine.RedmineTask;
-import org.finch.jiraredminerestintegration.model.redmine.SearchResult;
+import org.finch.jiraredminerestintegration.model.redmine.*;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.web.client.RestTemplateBuilder;
 import org.springframework.http.HttpEntity;
@@ -21,8 +18,7 @@ import org.springframework.web.client.RestTemplate;
 import org.springframework.web.util.UriComponents;
 import org.springframework.web.util.UriComponentsBuilder;
 
-import java.nio.file.Files;
-import java.nio.file.Path;
+import java.util.List;
 import java.util.Optional;
 
 import static org.finch.jiraredminerestintegration.config.JiraConstantConfig.JIRA_CONSTANT;
@@ -47,13 +43,16 @@ public class RedmineClient {
     @Value("#{'${app.redmine.base-url}'+'/time_entries.json'}")
     private String logTimeUrl;
 
+    @Value("#{'${app.redmine.base-url}'+'/time_entries/%s.json'}")
+    private String deleteTimeUrl;
+
     @Value("${app.redmine.key-path}")
     private String keyFile;
 
     @SneakyThrows
-    public Optional<RedmineTask> searchTask(String jiraIssueId) {
+    public Optional<RedmineTask> searchTask(String jiraIssueId, UserMapping credential) {
         UriComponents uriComponents = UriComponentsBuilder.fromUriString(searchUrl)
-                .queryParam("key", getKey())
+                .queryParam("key", credential.getRedmineKey())
                 .queryParam("limit", "100")
                 .queryParam("offset", "0")
                 .queryParam("q", jiraIssueId)
@@ -72,28 +71,22 @@ public class RedmineClient {
         return Optional.empty();
     }
 
+    public void upsetTask(UserMapping assignee, JiraIssue jiraIssue, UserMapping credential) {
 
-    @SneakyThrows
-    private String getKey() {
-        return Files.readString(Path.of(keyFile)).replace("\n", "");
-    }
-
-    public void upsetTask(UserMapping assignee, JiraIssue jiraIssue) {
-
-        Optional<RedmineTask> searchedTask = searchTask(jiraIssue.getKey());
+        Optional<RedmineTask> searchedTask = searchTask(jiraIssue.getKey(), credential);
         if (searchedTask.isPresent()) {
 
-            updateTask(jiraIssue, assignee);
+            updateTask(jiraIssue, assignee, credential);
 
         } else {
 
-            createNewTask(jiraIssue, assignee);
+            createNewTask(jiraIssue, assignee, credential);
 
         }
     }
 
     @SneakyThrows
-    private void updateTask(JiraIssue task, UserMapping assignee) {
+    private void updateTask(JiraIssue task, UserMapping assignee, UserMapping credential) {
 
         CreationRedmineTask redmineTask = fieldMapping(task, assignee);
 
@@ -101,7 +94,7 @@ public class RedmineClient {
                 .issue(redmineTask).build();
 
         UriComponents uriComponents = UriComponentsBuilder.fromUriString(issueCreationUrl)
-                .queryParam("key", getKey()).build();
+                .queryParam("key", credential.getRedmineKey()).build();
 
         exchange(uriComponents, HttpMethod.POST, new HttpEntity<>(issueUpdate));
 
@@ -110,7 +103,7 @@ public class RedmineClient {
     }
 
     @SneakyThrows
-    private void createNewTask(JiraIssue task, UserMapping assignee) {
+    private void createNewTask(JiraIssue task, UserMapping assignee, UserMapping credential) {
 
         CreationRedmineTask redmineTask = fieldMapping(task, assignee);
 
@@ -118,7 +111,7 @@ public class RedmineClient {
                 .issue(redmineTask).build();
 
         UriComponents uriComponents = UriComponentsBuilder.fromUriString(issueCreationUrl)
-                .queryParam("key", getKey()).build();
+                .queryParam("key", credential.getRedmineKey()).build();
 
         exchange(uriComponents, HttpMethod.POST, new HttpEntity<>(issueCretion));
 
@@ -147,6 +140,42 @@ public class RedmineClient {
         }
 
         return responseEntity;
+    }
+
+    @SneakyThrows
+    public List<RedmineWorkLog> getIssueWorkLog(int taskId, UserMapping userMapping) {
+        UriComponents uriComponents = UriComponentsBuilder.fromUriString(logTimeUrl)
+                .queryParam("key", userMapping.getRedmineKey())
+                .queryParam("issue_id", taskId).build();
+
+        ResponseEntity<String> responseEntity = exchange(uriComponents, HttpMethod.GET, new HttpEntity<>(new HttpHeaders()));
+        System.out.println(responseEntity.getBody());
+        return objectMapper.readValue(responseEntity.getBody(), RedmineWorkLogs.class).getTimeEntries();
+
+    }
+
+    @SneakyThrows
+    public void deleteIssueWorkLog(String workLogId, UserMapping credential) {
+        UriComponents uriComponents = UriComponentsBuilder.fromUriString(String.format(deleteTimeUrl, workLogId))
+                .queryParam("key", credential.getRedmineKey()).build();
+
+        exchange(uriComponents, HttpMethod.DELETE, new HttpEntity<>(new HttpHeaders()));
+
+        log.info("delete time entry {}", workLogId);
+
+    }
+
+    @SneakyThrows
+    public void createIssueWorkLog(TimeEntry timeEntry, UserMapping credential) {
+        UriComponents uriComponents = UriComponentsBuilder.fromUriString(logTimeUrl)
+                .queryParam("key", credential.getRedmineKey()).build();
+
+        LogTimeDTO logTimeDTO = LogTimeDTO.builder().timeEntry(timeEntry).build();
+
+        exchange(uriComponents, HttpMethod.POST, new HttpEntity<>(logTimeDTO));
+
+        log.info("create time entry {}", timeEntry);
+
     }
 
 }

@@ -7,6 +7,7 @@ import lombok.RequiredArgsConstructor;
 import lombok.SneakyThrows;
 import lombok.extern.slf4j.Slf4j;
 import org.finch.jiraredminerestintegration.model.jira.JiraIssue;
+import org.finch.jiraredminerestintegration.model.jira.JiraWorkLog;
 import org.finch.jiraredminerestintegration.model.jira.SearchResult;
 import org.finch.jiraredminerestintegration.oauth1Client.OAuthClient;
 import org.springframework.beans.factory.annotation.Value;
@@ -33,7 +34,10 @@ public class JiraClient {
     private String searchUrl;
 
     @Value("#{'${app.jira.base-url}'+'/rest/api/2/issue/'}")
-    private String isueUrl;
+    private String issueUrl;
+
+    @Value("#{'${app.jira.base-url}'+'/rest/api/2/issue/%s/worklog'}")
+    private String issueWorkLogUrl;
 
     private final SimpleDateFormat dateFormat = new SimpleDateFormat("yyyy/MM/dd HH:mm");
 
@@ -59,16 +63,23 @@ public class JiraClient {
 
     @SneakyThrows
     public JiraIssue getIssue(String issueKey) {
-        HttpResponse httpResponse = authClient.handleGetRequest(isueUrl + issueKey);
+        HttpResponse httpResponse = authClient.handleGetRequest(issueUrl + issueKey);
 
         String resp = httpResponse.parseAsString();
 
+        return objectMapper.readValue(resp, JiraIssue.class);
+
+    }
+
+    @SneakyThrows
+    public List<JiraWorkLog> getIssueWorkLog(String issueKey) {
+        HttpResponse httpResponse = authClient.handleGetRequest(String.format(issueWorkLogUrl, issueKey));
+
+        String resp = httpResponse.parseAsString();
         System.out.println(resp);
+        return objectMapper
+                .readValue(resp, SearchResult.class)
+                .getWorklogs();
 
-        JiraIssue issue = objectMapper.readValue(resp, JiraIssue.class);
-
-        System.out.println(issue);
-
-        return issue;
     }
 }

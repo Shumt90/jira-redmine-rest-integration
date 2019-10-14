@@ -1,11 +1,14 @@
-package org.finch.jiraredminerestintegration.model.redmine;
+package org.finch.jiraredminerestintegration.model.jira;
 
 import com.fasterxml.jackson.annotation.JsonProperty;
-import lombok.Builder;
-import lombok.Data;
+import lombok.*;
 
-@Data
 @Builder
+@NoArgsConstructor
+@AllArgsConstructor
+@Getter
+@Setter
+@ToString
 public class TimeEntry {
 
     @JsonProperty("issue_id")
@@ -14,7 +17,7 @@ public class TimeEntry {
     @JsonProperty("spent_on")
     private String spentOn;
 
-    private double hours;
+    private float hours;
 
     @JsonProperty("activity_id")
     private int activityId;

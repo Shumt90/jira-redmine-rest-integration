@@ -8,7 +8,7 @@ public class IssueFields {
     private String description;
     private String summary;
     private Status status;
-    private User assignee;
+    private JiraUser assignee;
 
     @JsonProperty("customfield_19407")
     private String allUpdate;

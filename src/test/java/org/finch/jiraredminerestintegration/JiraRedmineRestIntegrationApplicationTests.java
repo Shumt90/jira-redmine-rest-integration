@@ -18,7 +18,6 @@ import java.time.Instant;
 import java.time.temporal.ChronoUnit;
 import java.util.Date;
 
-import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertTrue;
 
 @RunWith(SpringRunner.class)
@@ -78,7 +77,7 @@ public class JiraRedmineRestIntegrationApplicationTests {
 
         Instant date = Instant.now().minus(1, ChronoUnit.HOURS);
 
-        jiraRedmineIntegration.syncIssue(Date.from(date));
+        jiraRedmineIntegration.syncIssues(Date.from(date));
 
     }
 
@@ -91,15 +90,7 @@ public class JiraRedmineRestIntegrationApplicationTests {
 
     }
 
-    @Test
-    @SneakyThrows
-    public void redmineTaskExist() {
 
-        assertTrue(client.searchTask("S24-1526").isPresent());
-
-        assertFalse(client.searchTask("S24-0000").isPresent());
-
-    }
 
     @Test
     @SneakyThrows
@@ -110,6 +101,23 @@ public class JiraRedmineRestIntegrationApplicationTests {
         System.out.println(URLDecoder.decode("updated+>+%272019%2F10%2F14+01%3A52%27", StandardCharsets.UTF_8));
         System.out.println(URLEncoder.encode("updated > '2019/10/14 01:52'", StandardCharsets.UTF_8));
         System.out.println(URLEncoder.encode("updated > '2019/10/14 01:52'", StandardCharsets.UTF_16));
+
+    }
+
+    @Test
+    @SneakyThrows
+    public void getWorkLog() {
+
+        System.out.println(jiraClient.getIssueWorkLog("S24-969"));
+
+    }
+
+
+    @Test
+    @SneakyThrows
+    public void syncIssueWorkLog() {
+
+        jiraRedmineIntegration.syncIssueWorkLog("S24-1592", 23225);
 
     }
 
