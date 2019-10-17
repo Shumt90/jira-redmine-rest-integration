@@ -1,23 +1,26 @@
 app:
   redmine:
     base-url: https://task.finch.fm
-    key-path: C:\jira-renmine-integration\redmine-key.txt
+    key-path: /media/alexandr/UUI/jira-renmine-integration/redmine-key.txt
   jira:
-    oauthPropertyPath: D:\atlassian-oauth-examples\java\config.properties
+    oauthPropertyPath: /media/alexandr/UUI/atlassian-oauth-examples/java/config.properties
     base-url: https://jira.stoloto.ru
 
-
 spring:
-  h2:
-    console:
-      enabled: true
   datasource:
-    url: jdbc:sqlite:file:C:\jp\jira-redmine-integration\data\data.db
-    driver-class-name: org.sqlite.JDBC
+    url: jdbc:h2:file:/home/alexandr/jiraRedmineIntegrationDB/data;DB_CLOSE_ON_EXIT=FALSE;Mode=Oracle
+    driverClassName: org.h2.Driver
   jpa:
     hibernate:
-      ddl-auto: create-drop
+      ddl-auto: update
+
     open-in-view: false
     properties:
       hibernate:
-        dialect: org.finch.jiraredminerestintegration.config.SQLiteDialect
+        dialect: org.hibernate.dialect.H2Dialect
+    database-platform: h2
+  h2:
+    console:
+      enabled: true
+
+

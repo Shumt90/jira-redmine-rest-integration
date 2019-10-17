@@ -1,7 +1,7 @@
 package org.finch.jiraredminerestintegration.service;
 
 import lombok.AllArgsConstructor;
-import org.finch.jiraredminerestintegration.dao.UserMappingDTO;
+import org.finch.jiraredminerestintegration.dao.UserMappingDAO;
 import org.finch.jiraredminerestintegration.exception.SystemCredentialNotFound;
 import org.finch.jiraredminerestintegration.exception.UserCredentialNotFound;
 import org.finch.jiraredminerestintegration.model.UserMapping;
@@ -11,13 +11,13 @@ import org.springframework.stereotype.Service;
 @AllArgsConstructor
 public class CredentialService {
 
-    private UserMappingDTO userMappingDTO;
+    private UserMappingDAO userMappingDAO;
 
     UserMapping getSystemCred() {
-        return userMappingDTO.getSystem().orElseThrow(SystemCredentialNotFound::new);
+        return userMappingDAO.getSystem().orElseThrow(SystemCredentialNotFound::new);
     }
 
     UserMapping getByJiraUser(String jiraUserID) {
-        return userMappingDTO.findById(jiraUserID).orElseThrow(() -> new UserCredentialNotFound(jiraUserID));
+        return userMappingDAO.findById(jiraUserID).orElseThrow(() -> new UserCredentialNotFound(jiraUserID));
     }
 }

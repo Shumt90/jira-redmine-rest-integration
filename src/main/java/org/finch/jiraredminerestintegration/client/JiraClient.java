@@ -19,6 +19,8 @@ import java.text.SimpleDateFormat;
 import java.util.Date;
 import java.util.List;
 
+import static java.util.stream.Collectors.toList;
+
 
 @RequiredArgsConstructor
 @Service
@@ -58,6 +60,7 @@ public class JiraClient {
 
         SearchResult searchResult = objectMapper.readValue(resp, SearchResult.class);
 
+        log.info("get {} task for update: {}",searchResult.getIssues().size(), searchResult.getIssues().stream().map(JiraIssue::getKey).collect(toList()));
         return searchResult.getIssues();
     }
 
@@ -76,7 +79,6 @@ public class JiraClient {
         HttpResponse httpResponse = authClient.handleGetRequest(String.format(issueWorkLogUrl, issueKey));
 
         String resp = httpResponse.parseAsString();
-        System.out.println(resp);
         return objectMapper
                 .readValue(resp, SearchResult.class)
                 .getWorklogs();

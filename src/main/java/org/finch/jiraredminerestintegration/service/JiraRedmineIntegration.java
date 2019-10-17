@@ -27,7 +27,7 @@ public class JiraRedmineIntegration {
 
 
     public void syncIssues(Date lastUpdate) {
-
+        log.info("sync from: {}", lastUpdate);
         UserMapping systemCred = credentialService.getSystemCred();
 
         jiraClient.searchUpdatedAfter(lastUpdate).forEach(jiraIssue -> {
@@ -37,11 +37,12 @@ public class JiraRedmineIntegration {
 
             if (userMapping.isPresent()) {
 
-                redmineClient.upsetTask(userMapping.get(), jiraIssue, systemCred);
+                int redmineId= redmineClient.upsetTask(userMapping.get(), jiraIssue, systemCred);
+                syncIssueWorkLog(jiraIssue.getKey(),redmineId);
 
             } else {
 
-                log.warn("No mapping for user: {}", jiraUserKey);
+                log.debug("No mapping for user: {}", jiraUserKey);
 
             }
         });
@@ -81,7 +82,7 @@ public class JiraRedmineIntegration {
             }
         });
         forDelete.stream().map(RedmineWorkLog::getId).forEach(redmineWorkLogId -> redmineClient.deleteIssueWorkLog(redmineWorkLogId, systemCred));
-        forCreation.stream().forEach(jiraWorkLog ->
+        forCreation.forEach(jiraWorkLog ->
                 redmineClient.createIssueWorkLog(
                         JiraRedmineMapper.mapWorkLog(jiraWorkLog, redmainIssueKey),
                         credentialService.getByJiraUser(jiraWorkLog.getAuthor().getKey())));
@@ -91,7 +92,7 @@ public class JiraRedmineIntegration {
     private boolean timeLogIsEquals(RedmineWorkLog redmineWorkLog, JiraWorkLog jiraWorkLog) {
         return redmineWorkLog.getComments().contains(jiraWorkLog.getId())
                 && JiraRedmineMapper.buildTimeLogComment(jiraWorkLog).equals(redmineWorkLog.getComments())
-                && Math.abs(redmineWorkLog.getHours() * 60 * 60 - jiraWorkLog.getTimeSpentSeconds()) < 5;
+                && Math.abs(redmineWorkLog.getHours() * 60 * 60 - jiraWorkLog.getTimeSpentSeconds()) < 60;
     }
 
 
