@@ -15,11 +15,11 @@ import org.springframework.stereotype.Service;
 
 import java.net.URLEncoder;
 import java.nio.charset.StandardCharsets;
-import java.text.SimpleDateFormat;
 import java.util.Date;
 import java.util.List;
 
 import static java.util.stream.Collectors.toList;
+import static org.finch.jiraredminerestintegration.model.DataFormat.DATE_FORMAT;
 
 
 @RequiredArgsConstructor
@@ -41,8 +41,6 @@ public class JiraClient {
     @Value("#{'${app.jira.base-url}'+'/rest/api/2/issue/%s/worklog'}")
     private String issueWorkLogUrl;
 
-    private final SimpleDateFormat dateFormat = new SimpleDateFormat("yyyy/MM/dd HH:mm");
-
     @SneakyThrows
     public boolean isConnected() {
         HttpResponse httpResponse = authClient.handleGetRequest(projectUrl);
@@ -52,7 +50,7 @@ public class JiraClient {
 
     @SneakyThrows
     public List<JiraIssue> searchUpdatedAfter(Date lastUpdate) {
-        String jql = URLEncoder.encode("project=S24 AND updated > '" + dateFormat.format(lastUpdate) + "'", StandardCharsets.UTF_8);
+        String jql = URLEncoder.encode("project=S24 AND updated > '" + DATE_FORMAT.format(lastUpdate) + "'", StandardCharsets.UTF_8);
 
         HttpResponse httpResponse = authClient.handleGetRequest(searchUrl + jql);
 

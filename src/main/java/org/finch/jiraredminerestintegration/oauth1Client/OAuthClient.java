@@ -8,6 +8,7 @@ import com.google.api.client.http.HttpResponse;
 import com.google.api.client.http.javanet.NetHttpTransport;
 import lombok.AllArgsConstructor;
 import lombok.SneakyThrows;
+import org.finch.jiraredminerestintegration.service.PropertyClient;
 import org.springframework.stereotype.Service;
 
 import java.io.IOException;
@@ -15,13 +16,13 @@ import java.security.KeyManagementException;
 import java.security.NoSuchAlgorithmException;
 import java.util.Map;
 
-import static org.finch.jiraredminerestintegration.oauth1Client.PropertiesClient.*;
+import static org.finch.jiraredminerestintegration.service.PropertyClient.*;
 
 @Service
 @AllArgsConstructor
 public class OAuthClient {
 
-    private final PropertiesClient propertiesClient;
+    private final PropertyClient propertiesClient;
     private final JiraOAuthClient jiraOAuthClient;
 
     /**

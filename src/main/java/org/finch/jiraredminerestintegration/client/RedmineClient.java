@@ -4,6 +4,7 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import lombok.RequiredArgsConstructor;
 import lombok.SneakyThrows;
 import lombok.extern.slf4j.Slf4j;
+import org.finch.jiraredminerestintegration.exception.RedmineServerException;
 import org.finch.jiraredminerestintegration.model.UserMapping;
 import org.finch.jiraredminerestintegration.model.jira.JiraIssue;
 import org.finch.jiraredminerestintegration.model.redmine.*;
@@ -21,6 +22,7 @@ import org.springframework.web.util.UriComponentsBuilder;
 import java.util.List;
 import java.util.Optional;
 
+import static java.util.Objects.isNull;
 import static org.finch.jiraredminerestintegration.config.JiraConstantConfig.JIRA_CONSTANT;
 import static org.finch.jiraredminerestintegration.config.RedmineConstantConfig.REDMINE_CONSTANT;
 
@@ -49,9 +51,6 @@ public class RedmineClient {
     @Value("#{'${app.redmine.base-url}'+'/time_entries/%s.json'}")
     private String deleteTimeUrl;
 
-    @Value("${app.redmine.key-path}")
-    private String keyFile;
-
     @SneakyThrows
     public Optional<RedmineTask> searchTask(String jiraIssueId, UserMapping credential) {
         UriComponents uriComponents = UriComponentsBuilder.fromUriString(searchUrl)
@@ -67,42 +66,68 @@ public class RedmineClient {
 
         for (RedmineTask task : searchResult.getResults()) {
             if (task.getTitle().contains(jiraIssueId)) {
-                return Optional.of(task);
+
+                return getOneTask(task.getId(), credential);
             }
         }
 
         return Optional.empty();
     }
 
+    @SneakyThrows
+    private Optional<RedmineTask> getOneTask(String taskId, UserMapping credential) {
+        UriComponents uriComponents = UriComponentsBuilder.fromUriString(issueUrl)
+                .queryParam("key", credential.getRedmineKey())
+                .queryParam("limit", "1")
+                .queryParam("offset", "0")
+                .queryParam("issue_id", taskId)
+                .build();
+
+        ResponseEntity<String> responseEntity = exchange(uriComponents, HttpMethod.GET, new HttpEntity<>(new HttpHeaders()));
+
+        Issues issues = objectMapper.readValue(responseEntity.getBody(), Issues.class);
+
+        return issues.getIssues().stream().findFirst();
+
+    }
+
     public int upsetTask(UserMapping assignee, JiraIssue jiraIssue, UserMapping credential) {
+
+        int redmineTaskId;
 
         Optional<RedmineTask> searchedTask = searchTask(jiraIssue.getKey(), credential);
         if (searchedTask.isPresent()) {
 
-            return updateTask(jiraIssue, searchedTask.get(), assignee, credential);
+            redmineTaskId = updateTask(jiraIssue, searchedTask.get(), assignee, credential);
 
         } else {
 
-            return createNewTask(jiraIssue, assignee, credential);
+            redmineTaskId = createNewTask(jiraIssue, assignee, credential);
 
         }
+
+        log.debug("task upserted: {}", redmineTaskId);
+
+        return redmineTaskId;
     }
 
     @SneakyThrows
     private int updateTask(JiraIssue task, RedmineTask foundRedmineTaks, UserMapping assignee, UserMapping credential) {
 
-        CreationRedmineTask redmineTask = fieldMapping(task, assignee);
+        if (!taskEquals(task, assignee, foundRedmineTaks)) {
 
-        IssuePostPut issueUpdate = IssuePostPut.builder()
-                .issue(redmineTask).build();
+            UpdateRedmineTask redmineTask = updateFieldMapping(task, assignee);
 
-        UriComponents uriComponents = UriComponentsBuilder.fromUriString(String.format(issueUpdateUrl,foundRedmineTaks.getId()))
-                .queryParam("key", credential.getRedmineKey()).build();
+            IssuePut issueUpdate = IssuePut.builder()
+                    .issue(redmineTask).build();
 
-        exchange(uriComponents, HttpMethod.PUT, new HttpEntity<>(issueUpdate));
+            UriComponents uriComponents = UriComponentsBuilder.fromUriString(String.format(issueUpdateUrl, foundRedmineTaks.getId()))
+                    .queryParam("key", credential.getRedmineKey()).build();
 
-        log.info(String.format("Task updated. jira: %s, redmine: %s", task.getKey(), foundRedmineTaks.getId()));
+            exchange(uriComponents, HttpMethod.PUT, new HttpEntity<>(issueUpdate));
 
+            log.info(String.format("Task updated. jira: %s, redmine: %s", task.getKey(), foundRedmineTaks.getId()));
+        }
         return Integer.parseInt(foundRedmineTaks.getId());
 
     }
@@ -110,9 +135,9 @@ public class RedmineClient {
     @SneakyThrows
     private int createNewTask(JiraIssue task, UserMapping assignee, UserMapping credential) {
 
-        CreationRedmineTask redmineTask = fieldMapping(task, assignee);
+        CreationRedmineTask redmineTask = CreateFieldMapping(task, assignee);
 
-        IssuePostPut issueCretion = IssuePostPut.builder()
+        IssuePost issueCretion = IssuePost.builder()
                 .issue(redmineTask).build();
 
         UriComponents uriComponents = UriComponentsBuilder.fromUriString(issueCreationUrl)
@@ -120,15 +145,16 @@ public class RedmineClient {
 
         ResponseEntity<String> responseEntity = exchange(uriComponents, HttpMethod.POST, new HttpEntity<>(issueCretion));
 
-        RedmineTask updatedRedmineTask=objectMapper.readValue(responseEntity.getBody(), RedmineTask.class);
+        RedmineTask updatedRedmineTask = objectMapper.readValue(responseEntity.getBody(), RedmineTask.class);
 
+        log.debug(responseEntity.getBody());
 
         log.info(String.format("Task created. jira: %s, redmine: %s", task.getKey(), updatedRedmineTask.getId()));
 
         return Integer.parseInt(updatedRedmineTask.getId());
     }
 
-    private CreationRedmineTask fieldMapping(JiraIssue jiraIssue, UserMapping assignee) {
+    private CreationRedmineTask CreateFieldMapping(JiraIssue jiraIssue, UserMapping assignee) {
         return CreationRedmineTask.builder()
                 .projectId(REDMINE_CONSTANT.getDefaultProjectId())
                 .statusId(REDMINE_CONSTANT.getDefaultStatusId())
@@ -137,15 +163,35 @@ public class RedmineClient {
                 .customFields(REDMINE_CONSTANT.getDefaultCustomFields())
                 .assignedToId(assignee.getRedmineId())
                 .description(jiraIssue.getFields().getDescription())
-                .subject(String.format("%s %s", jiraIssue.getKey(), jiraIssue.getFields().getSummary().replace(JIRA_CONSTANT.getDefaultProjectId(), "")))
+                .subject(subject(jiraIssue))
                 .build();
+    }
+
+    private UpdateRedmineTask updateFieldMapping(JiraIssue jiraIssue, UserMapping assignee) {
+        return UpdateRedmineTask.builder()
+                .assignedToId(assignee.getRedmineId())
+                .description(jiraIssue.getFields().getDescription())
+                .subject(subject(jiraIssue))
+                .build();
+    }
+
+    private boolean taskEquals(JiraIssue jiraIssue, UserMapping assignee, RedmineTask foundRedmineTaks) {
+
+        return false;
+        /*return jiraIssue.getFields().getDescription().equals(foundRedmineTaks.getDescription()) &&
+                subject(jiraIssue).equals(foundRedmineTaks.getSubject()) &&
+                assignee.getRedmineId().equals(foundRedmineTaks.getAssignedTo().getId());*/
+    }
+
+    private String subject(JiraIssue jiraIssue) {
+        return String.format("%s %s", jiraIssue.getKey(), jiraIssue.getFields().getSummary().replace(JIRA_CONSTANT.getDefaultProjectId(), ""));
     }
 
     private ResponseEntity<String> exchange(UriComponents uriComponents, HttpMethod method, HttpEntity httpEntity) {
 
         ResponseEntity<String> responseEntity = client.exchange(uriComponents.toUriString(), method, httpEntity, String.class);
         if (!responseEntity.getStatusCode().is2xxSuccessful()) {
-            log.error(String.format("get error when sent request. url: %s, method: %s, entity: %s, body: %s", uriComponents.toUriString(), method, httpEntity, responseEntity.getBody()));
+            throw new RedmineServerException(String.format("get error when sent request. url: %s, method: %s, entity: %s, body: %s", uriComponents.toUriString(), method, httpEntity, responseEntity.getBody()));
         }
 
         return responseEntity;
@@ -175,6 +221,10 @@ public class RedmineClient {
 
     @SneakyThrows
     public void createIssueWorkLog(TimeEntry timeEntry, UserMapping credential) {
+        if (isNull(credential.getRedmineKey())) {
+            log.warn("Redmine key not set, skip time log. jira user: {}, task: {}", credential.getId(), timeEntry.getIssueId());
+        }
+
         UriComponents uriComponents = UriComponentsBuilder.fromUriString(logTimeUrl)
                 .queryParam("key", credential.getRedmineKey()).build();
 

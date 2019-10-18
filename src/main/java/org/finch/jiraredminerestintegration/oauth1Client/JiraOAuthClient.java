@@ -1,13 +1,13 @@
 package org.finch.jiraredminerestintegration.oauth1Client;
 
 import com.google.api.client.auth.oauth.OAuthParameters;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 
 import java.security.KeyManagementException;
 import java.security.NoSuchAlgorithmException;
 import java.security.spec.InvalidKeySpecException;
 
-import static org.finch.jiraredminerestintegration.oauth1Client.PropertiesClient.JIRA_HOME;
 
 
 @Service
@@ -15,8 +15,7 @@ public class JiraOAuthClient {
 
     private final JiraOAuthTokenFactory oAuthGetAccessTokenFactory;
 
-    public JiraOAuthClient(PropertiesClient propertiesClient) {
-        String jiraBaseUrl = propertiesClient.getProperties().get(JIRA_HOME);
+    public JiraOAuthClient(@Value("#{'${app.jira.base-url}'}") String jiraBaseUrl) {
         this.oAuthGetAccessTokenFactory = new JiraOAuthTokenFactory(jiraBaseUrl);
     }
 

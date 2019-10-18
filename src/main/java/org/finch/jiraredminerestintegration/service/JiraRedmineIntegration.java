@@ -11,6 +11,7 @@ import org.finch.jiraredminerestintegration.model.jira.JiraWorkLog;
 import org.finch.jiraredminerestintegration.model.redmine.RedmineWorkLog;
 import org.springframework.stereotype.Service;
 
+import java.time.Instant;
 import java.util.ArrayList;
 import java.util.Date;
 import java.util.List;
@@ -24,6 +25,28 @@ public class JiraRedmineIntegration {
     private final RedmineClient redmineClient;
     private UserMappingService userMappingService;
     private CredentialService credentialService;
+    private final PropertyClient propertyClient;
+
+    public void prepareAndUpdate() {
+        Optional<Date> lastUpdate = propertyClient.getLastUpdate();
+
+        Date now = new Date();
+
+        if (lastUpdate.isEmpty()
+                || Instant.now().toEpochMilli() - lastUpdate.get().toInstant().toEpochMilli() > 1000 * 60 * 60 * 12
+        ) {
+            log.warn("sync skip");
+        } else {
+
+            log.info("begin sync");
+
+            syncIssues(lastUpdate.get());
+
+            log.info("end sync");
+        }
+
+        propertyClient.setLastUpdate(now);
+    }
 
 
     public void syncIssues(Date lastUpdate) {
@@ -42,13 +65,15 @@ public class JiraRedmineIntegration {
 
             } else {
 
-                log.debug("No mapping for user: {}", jiraUserKey);
+                log.debug("No mapping for user: {}. task missed: {}", jiraUserKey, jiraIssue.getKey());
 
             }
         });
     }
 
     public void syncIssueWorkLog(String jiraIssueKey, int redmainIssueKey) {
+
+        log.debug("syncIssueWorkLog jira: {}, redmine: {}", jiraIssueKey, redmainIssueKey);
 
         UserMapping systemCred = credentialService.getSystemCred();
 

@@ -117,7 +117,7 @@ public class JiraRedmineRestIntegrationApplicationTests {
     @SneakyThrows
     public void syncIssueWorkLog() {
 
-        jiraRedmineIntegration.syncIssueWorkLog("S24-1592", 23225);
+        jiraRedmineIntegration.syncIssueWorkLog("S24-1588", 23252);
 
     }
 

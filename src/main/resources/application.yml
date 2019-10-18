@@ -1,15 +1,15 @@
 app:
   redmine:
     base-url: https://task.finch.fm
-    key-path: /media/alexandr/UUI/jira-renmine-integration/redmine-key.txt
   jira:
-    oauthPropertyPath: /media/alexandr/UUI/atlassian-oauth-examples/java/config.properties
     base-url: https://jira.stoloto.ru
 
 spring:
   datasource:
-    url: jdbc:h2:file:/home/alexandr/jiraRedmineIntegrationDB/data;DB_CLOSE_ON_EXIT=FALSE;Mode=Oracle
     driverClassName: org.h2.Driver
+    url: jdbc:h2:file:${db-path};DB_CLOSE_ON_EXIT=FALSE;Mode=Oracle
+    username: sa
+    password: ${db-password}
   jpa:
     hibernate:
       ddl-auto: update
@@ -22,5 +22,6 @@ spring:
   h2:
     console:
       enabled: true
-
-
+logging:
+  level:
+    org.finch: debug
