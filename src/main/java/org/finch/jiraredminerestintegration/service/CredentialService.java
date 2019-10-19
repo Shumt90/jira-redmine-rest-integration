@@ -13,7 +13,7 @@ public class CredentialService {
 
     private UserMappingDAO userMappingDAO;
 
-    UserMapping getSystemCred() {
+    public UserMapping getSystemCred() {
         return userMappingDAO.getSystem().orElseThrow(SystemCredentialNotFound::new);
     }
 

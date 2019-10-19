@@ -11,4 +11,5 @@ public class SearchResult {
     private int total;
     private List<JiraIssue> issues;
     private List<JiraWorkLog> worklogs;
+    private List<JiraComment> comments;
 }

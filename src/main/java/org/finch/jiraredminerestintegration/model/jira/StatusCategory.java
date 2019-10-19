@@ -3,7 +3,8 @@ package org.finch.jiraredminerestintegration.model.jira;
 import lombok.Data;
 
 @Data
-public class JiraUser {
+public class StatusCategory {
+    private int id;
+    private String name;
     private String key;
-    private String displayName;
 }

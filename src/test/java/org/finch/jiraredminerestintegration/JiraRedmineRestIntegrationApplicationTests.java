@@ -4,6 +4,7 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import lombok.SneakyThrows;
 import org.finch.jiraredminerestintegration.client.JiraClient;
 import org.finch.jiraredminerestintegration.client.RedmineClient;
+import org.finch.jiraredminerestintegration.service.CredentialService;
 import org.finch.jiraredminerestintegration.service.JiraRedmineIntegration;
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -34,13 +35,27 @@ public class JiraRedmineRestIntegrationApplicationTests {
     private JiraClient jiraClient;
 
     @Autowired
+    private RedmineClient redmineClient;
+
+    @Autowired
     private JiraRedmineIntegration jiraRedmineIntegration;
+
+    @Autowired
+    private CredentialService credentialService;
 
     @Test
     @SneakyThrows
     public void connectionTest() {
 
         assertTrue(jiraClient.isConnected());
+
+    }
+
+    @Test
+    @SneakyThrows
+    public void printAllStatuses() {
+
+        jiraClient.initAllStatuses("S24");
 
     }
 
@@ -118,6 +133,14 @@ public class JiraRedmineRestIntegrationApplicationTests {
     public void syncIssueWorkLog() {
 
         jiraRedmineIntegration.syncIssueWorkLog("S24-1588", 23252);
+
+    }
+
+    @Test
+    @SneakyThrows
+    public void getRedmineIssue() {
+
+        redmineClient.getOneTask("23235", credentialService.getSystemCred());
 
     }
 

@@ -26,6 +26,7 @@ public class JiraRedmineIntegration {
     private UserMappingService userMappingService;
     private CredentialService credentialService;
     private final PropertyClient propertyClient;
+    private final MappingService mappingService;
 
     public void prepareAndUpdate() {
         Optional<Date> lastUpdate = propertyClient.getLastUpdate();
@@ -57,10 +58,11 @@ public class JiraRedmineIntegration {
 
             String jiraUserKey = jiraIssue.getFields().getAssignee().getKey();
             Optional<UserMapping> userMapping = userMappingService.getMapping(jiraUserKey);
+            String jiraComments = mappingService.mapComments(jiraClient.getComments(jiraIssue.getKey()));
 
             if (userMapping.isPresent()) {
 
-                int redmineId= redmineClient.upsetTask(userMapping.get(), jiraIssue, systemCred);
+                int redmineId = redmineClient.upsetTask(userMapping.get(), jiraIssue, systemCred, jiraComments);
                 syncIssueWorkLog(jiraIssue.getKey(),redmineId);
 
             } else {

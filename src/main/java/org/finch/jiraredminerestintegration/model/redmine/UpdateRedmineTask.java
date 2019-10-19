@@ -14,6 +14,8 @@ public class UpdateRedmineTask {
     private String description;
     @JsonProperty("assigned_to_id")
     private String assignedToId;
+    @JsonProperty("status_id")
+    private String statusId;
 
 
 }
