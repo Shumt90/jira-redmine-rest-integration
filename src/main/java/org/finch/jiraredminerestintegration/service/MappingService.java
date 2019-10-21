@@ -13,8 +13,11 @@ import org.finch.jiraredminerestintegration.model.redmine.UpdateRedmineTask;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 
+import java.time.format.DateTimeFormatter;
 import java.util.Comparator;
 import java.util.List;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
@@ -27,7 +30,7 @@ public class MappingService {
     private final StatusMappingDAO statusMappingDAO;
     @Value("#{'${app.jira.base-url}'+'/browse/'}")
     private String issueLink;
-    private static String LINK_PATTERN = "<a.*</a>";
+    private static String LINK_PATTERN = "<a href=\".+?</a>";
     private static String URL_EXTRACTOR = "http.*\">";
 
     String mapComments(List<JiraComment> comments) {
@@ -41,8 +44,8 @@ public class MappingService {
     private String mapComment(JiraComment jiraComment) {
         return String.format("-----------------------------------\n" +
                         "*From*: %s *at* %s\n>" +
-                        "%s", jiraComment.getAuthor().getDisplayName(), jiraComment.getCreated(),
-                Stream.of(jiraComment.getBody().split("\n")).map(MappingService::unformattedSymbols).collect(Collectors.joining("\n>")));
+                        "%s", jiraComment.getAuthor().getDisplayName(), DateTimeFormatter.RFC_1123_DATE_TIME.format(jiraComment.getCreated()),
+                Stream.of(jiraComment.getBody().split("\n")).map(MappingService::toRedmineFormat).collect(Collectors.joining("\n>")));
     }
 
     public void writeStatuses(List<Status> statuses) {
@@ -102,26 +105,66 @@ public class MappingService {
     }
 
     private String description(String description, String comments, String jiraIssueKey) {
-        return unformattedSymbols(issueLink +
+        return toRedmineFormat(issueLink +
                 jiraIssueKey + "\n" +
                 description + "\n" +
                 comments)
                 + "\n" + comments;
     }
 
-    private static String unformattedSymbols(String in) {
-        String a = in.replace("<p>", "")
-                .replace("</p>", "")
-                .replace("<b>", "*")
-                .replace("</b>", "*");
-
-        return a;
+    private static String toRedmineFormat(String in) {
+        return unformattedSymbols(handleHref(handleSpan(in)));
     }
 
-    public static void main(String[] args) {
-        System.out.println(unformattedSymbols(">3. Длина серии бывает больше, чем кол-во матчей серии.\n" +
-                ">\n" +
-                "><a href=\"https://dev.sport24.ru/leagues/uefa-european-championship-qualifications/statistics/2012\">https://dev.sport24.ru/leagues/uefa-european-championship-qualifications/statistics/2012</a>&nbsp;(Забивают)"));
+    private static String unformattedSymbols(String in) {
+        return in.replace("<p>", "")
+                .replace("</p>", "")
+                .replace("<b>", "*\"")
+                .replace("</b>", "\"*")
+                .replace("<br>", "")
+                .replace("</s>", "\"-")
+                .replace("<s>", "-\"");
+    }
+
+    private static String handleHref(String inText) {
+
+        String outText = inText;
+        Matcher matcher = Pattern.compile(LINK_PATTERN).matcher(inText);
+
+        while (matcher.find()) {
+            String wrongFormat = inText.substring(matcher.start(), matcher.end());
+            String rightFormat = wrongFormat
+                    .replace("<a href=\"", "\"").
+                            replace("\">", "\":")
+                    .replace("</a>", "");
+
+            outText = inText.replace(wrongFormat, rightFormat);
+
+        }
+        return outText;
+    }
+
+    private static String handleSpan(String inText) {
+        String outText = inText;
+        Matcher matcher = Pattern.compile("<span class=\"image-wrap\"><img src=\".+?</span>").matcher(inText);
+
+        while (matcher.find()) {
+            String spanBlok = inText.substring(matcher.start(), matcher.end());
+
+            String newSpanBlok = spanBlok.replace("<span class=\"image-wrap\"><img src=\"", "");
+
+            Matcher endSpanBlockPgn = Pattern.compile("^.+?.png").matcher(newSpanBlok);
+
+            if (endSpanBlockPgn.find()) {
+                newSpanBlok = newSpanBlok.substring(endSpanBlockPgn.start(), endSpanBlockPgn.end());
+            }
+
+            newSpanBlok = "!" + newSpanBlok + "!";
+            outText = outText.replace(spanBlok, newSpanBlok);
+
+        }
+
+        return outText;
     }
 
     private String subject(JiraIssue jiraIssue) {
