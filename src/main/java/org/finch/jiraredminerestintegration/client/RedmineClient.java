@@ -144,13 +144,13 @@ public class RedmineClient {
 
         ResponseEntity<String> responseEntity = exchange(uriComponents, HttpMethod.POST, new HttpEntity<>(issueCretion));
 
-        RedmineTask updatedRedmineTask = objectMapper.readValue(responseEntity.getBody(), RedmineTask.class);
+        IssuePost updatedRedmineTask = objectMapper.readValue(responseEntity.getBody(), IssuePost.class);
 
         log.debug(responseEntity.getBody());
 
-        log.info(String.format("Task created. jira: %s, redmine: %s", task.getKey(), updatedRedmineTask.getId()));
+        log.info(String.format("Task created. jira: %s, redmine: %s", task.getKey(), updatedRedmineTask.getIssue().getId()));
 
-        return Integer.parseInt(updatedRedmineTask.getId());
+        return Integer.parseInt(updatedRedmineTask.getIssue().getId());
     }
 
 

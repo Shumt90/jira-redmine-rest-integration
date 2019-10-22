@@ -68,11 +68,14 @@ public class JiraClient {
 
     @SneakyThrows
     public List<JiraIssue> searchUpdatedAfter(Date lastUpdate) {
+
         String jql = URLEncoder.encode("project=S24 AND updated > '" + DATE_FORMAT.format(lastUpdate) + "'", StandardCharsets.UTF_8);
 
         HttpResponse httpResponse = authClient.handleGetRequest(searchUrl + jql);
 
         String resp = httpResponse.parseAsString();
+
+        System.out.println(resp);
 
         SearchResult searchResult = objectMapper.readValue(resp, SearchResult.class);
 
