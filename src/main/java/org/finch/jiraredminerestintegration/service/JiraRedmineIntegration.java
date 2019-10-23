@@ -17,6 +17,8 @@ import java.util.Date;
 import java.util.List;
 import java.util.Optional;
 
+import static java.util.Objects.nonNull;
+
 @AllArgsConstructor
 @Service
 @Slf4j
@@ -54,7 +56,10 @@ public class JiraRedmineIntegration {
         log.info("sync from: {}", lastUpdate);
         UserMapping systemCred = credentialService.getSystemCred();
 
-        jiraClient.searchUpdatedAfter(lastUpdate).forEach(jiraIssue -> {
+        jiraClient.searchUpdatedAfter(lastUpdate)
+                .stream()
+                .filter(issue -> nonNull(issue.getFields().getAssignee()))
+                .forEach(jiraIssue -> {
 
             String jiraUserKey = jiraIssue.getFields().getAssignee().getKey();
             Optional<UserMapping> userMapping = userMappingService.getMapping(jiraUserKey);
