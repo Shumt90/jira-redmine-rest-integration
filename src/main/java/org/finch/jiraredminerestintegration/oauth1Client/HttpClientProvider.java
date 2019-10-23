@@ -1,40 +1,22 @@
 package org.finch.jiraredminerestintegration.oauth1Client;
 
-import org.apache.http.conn.scheme.Scheme;
-import org.apache.http.conn.ssl.SSLSocketFactory;
-import org.apache.http.impl.client.DefaultHttpClient;
+import lombok.SneakyThrows;
 
-import javax.net.ssl.SSLContext;
-import javax.net.ssl.TrustManager;
-import javax.net.ssl.X509TrustManager;
-import java.security.KeyManagementException;
-import java.security.NoSuchAlgorithmException;
+import javax.net.ssl.*;
 import java.security.cert.X509Certificate;
 
 public class HttpClientProvider {
 
-    public static javax.net.ssl.SSLSocketFactory sslSocketFactory() throws NoSuchAlgorithmException, KeyManagementException {
-
+    @SneakyThrows
+    public static void disableSslVerification() {
         SSLContext sc = SSLContext.getInstance("SSL");
         sc.init(null, getTrustingManager(), new java.security.SecureRandom());
-        return sc.getSocketFactory();
-
-    }
-
-    public static DefaultHttpClient httpClientTrustingAllSSLCerts() throws NoSuchAlgorithmException, KeyManagementException {
-        DefaultHttpClient httpclient = new DefaultHttpClient();
-
-        SSLContext sc = SSLContext.getInstance("SSL");
-        sc.init(null, getTrustingManager(), new java.security.SecureRandom());
-
-        SSLSocketFactory socketFactory = new SSLSocketFactory(sc);
-        Scheme sch = new Scheme("https", socketFactory, 443);
-        httpclient.getConnectionManager().getSchemeRegistry().register(sch);
-        return httpclient;
+        HttpsURLConnection.setDefaultSSLSocketFactory(sc.getSocketFactory());
+        HttpsURLConnection.setDefaultHostnameVerifier(hostnameVerifier());
     }
 
     private static TrustManager[] getTrustingManager() {
-        TrustManager[] trustAllCerts = new TrustManager[]{new X509TrustManager() {
+        return new TrustManager[]{new X509TrustManager() {
             @Override
             public X509Certificate[] getAcceptedIssuers() {
                 return null;
@@ -51,6 +33,13 @@ public class HttpClientProvider {
             }
 
         }};
-        return trustAllCerts;
+    }
+
+    private static HostnameVerifier hostnameVerifier() {
+        return new HostnameVerifier() {
+            public boolean verify(String hostname, SSLSession session) {
+                return true;
+            }
+        };
     }
 }
