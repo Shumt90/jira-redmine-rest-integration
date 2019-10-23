@@ -44,7 +44,7 @@ public class OAuthClient {
      */
     private static HttpResponse getResponseFromUrl(OAuthParameters parameters, GenericUrl jiraUrl) throws IOException, KeyManagementException, NoSuchAlgorithmException {
 
-        NetHttpTransport transport = new NetHttpTransport.Builder().setHostnameVerifier(HttpClientProvider.hostnameVerifier()).setSslSocketFactory(HttpClientProvider.sslSocketFactory()).build();
+        NetHttpTransport transport = new NetHttpTransport.Builder().build();
 
         HttpRequestFactory requestFactory = transport.createRequestFactory(parameters);
         HttpRequest request = requestFactory.buildGetRequest(jiraUrl);

@@ -2,7 +2,7 @@ app:
   redmine:
     base-url: https://task.finch.fm
   jira:
-    base-url: https://jira.stoloto.ru
+    base-url: ${jira-base-url}
 
 spring:
   datasource:

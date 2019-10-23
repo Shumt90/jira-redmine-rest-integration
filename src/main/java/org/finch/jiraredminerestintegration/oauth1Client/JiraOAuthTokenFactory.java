@@ -34,7 +34,7 @@ class JiraOAuthTokenFactory {
         JiraOAuthGetAccessToken accessToken = new JiraOAuthGetAccessToken(accessTokenUrl);
         accessToken.consumerKey = consumerKey;
         accessToken.signer = getOAuthRsaSigner(privateKey);
-        accessToken.transport = new ApacheHttpTransport(HttpClientProvider.httpClientTrustingAllSSLCerts());
+        accessToken.transport = new ApacheHttpTransport();
         accessToken.verifier = secret;
         accessToken.temporaryToken = tmpToken;
         return accessToken;
