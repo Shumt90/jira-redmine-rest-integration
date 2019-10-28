@@ -1,6 +1,7 @@
 package org.finch.jiraredminerestintegration.service;
 
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.finch.jiraredminerestintegration.dao.StatusMappingDAO;
 import org.finch.jiraredminerestintegration.model.StatusMapping;
 import org.finch.jiraredminerestintegration.model.UserMapping;
@@ -21,11 +22,13 @@ import java.util.regex.Pattern;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
+import static java.util.Objects.nonNull;
 import static org.finch.jiraredminerestintegration.config.JiraConstantConfig.JIRA_CONSTANT;
 import static org.finch.jiraredminerestintegration.config.RedmineConstantConfig.REDMINE_CONSTANT;
 
 @Service
 @RequiredArgsConstructor
+@Slf4j
 public class MappingService {
     private final StatusMappingDAO statusMappingDAO;
     @Value("#{'${app.jira.base-url}'+'/browse/'}")
@@ -91,6 +94,11 @@ public class MappingService {
 
     public boolean taskEquals(JiraIssue jiraIssue, UserMapping assignee, RedmineTask foundRedmineTaks, String jiraComments) {
 
+        log.trace("jiraIssue: {}, assignee: {}, foundRedmineTaks: {}, jiraComments: {}", jiraIssue,
+                assignee,
+                foundRedmineTaks,
+                jiraComments);
+
         return foundRedmineTaks.getDescription()
                 .replace("\n", "")
                 .replace("\r", "")
@@ -99,7 +107,8 @@ public class MappingService {
                         .replace("\r", ""))
                 &&
                 foundRedmineTaks.getSubject().equals(subject(jiraIssue)) &&
-                foundRedmineTaks.getAssignedTo().getId().equals(assignee.getRedmineId()) &&
+                nonNull(foundRedmineTaks.getAssignedTo())
+                && foundRedmineTaks.getAssignedTo().getId().equals(assignee.getRedmineId()) &&
                 foundRedmineTaks.getStatus().getId().equals(status(jiraIssue));
 
     }
@@ -109,7 +118,7 @@ public class MappingService {
                 jiraIssueKey + "\n" +
                 description + "\n" +
                 comments)
-                + "\n" + comments;
+                + "\n";
     }
 
     private static String toRedmineFormat(String in) {

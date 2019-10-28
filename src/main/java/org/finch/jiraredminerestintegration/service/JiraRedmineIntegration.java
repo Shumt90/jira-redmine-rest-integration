@@ -45,7 +45,7 @@ public class JiraRedmineIntegration {
 
             syncIssues(lastUpdate.get());
 
-            log.info("end sync");
+            log.info("end sync. begin at: {}", now);
         }
 
         propertyClient.setLastUpdate(now);
@@ -61,21 +61,21 @@ public class JiraRedmineIntegration {
                 .filter(issue -> nonNull(issue.getFields().getAssignee()))
                 .forEach(jiraIssue -> {
 
-            String jiraUserKey = jiraIssue.getFields().getAssignee().getKey();
-            Optional<UserMapping> userMapping = userMappingService.getMapping(jiraUserKey);
-            String jiraComments = mappingService.mapComments(jiraClient.getComments(jiraIssue.getKey()));
+                    String jiraUserKey = jiraIssue.getFields().getAssignee().getKey();
+                    Optional<UserMapping> userMapping = userMappingService.getMapping(jiraUserKey);
+                    String jiraComments = mappingService.mapComments(jiraClient.getComments(jiraIssue.getKey()));
+                    log.trace("mapped comments: {}", jiraComments);
+                    if (userMapping.isPresent()) {
 
-            if (userMapping.isPresent()) {
+                        int redmineId = redmineClient.upsetTask(userMapping.get(), jiraIssue, systemCred, jiraComments);
+                        syncIssueWorkLog(jiraIssue.getKey(), redmineId);
 
-                int redmineId = redmineClient.upsetTask(userMapping.get(), jiraIssue, systemCred, jiraComments);
-                syncIssueWorkLog(jiraIssue.getKey(),redmineId);
+                    } else {
 
-            } else {
+                        log.debug("No mapping for user: {}. task missed: {}", jiraUserKey, jiraIssue.getKey());
 
-                log.debug("No mapping for user: {}. task missed: {}", jiraUserKey, jiraIssue.getKey());
-
-            }
-        });
+                    }
+                });
     }
 
     public void syncIssueWorkLog(String jiraIssueKey, int redmainIssueKey) {
@@ -115,9 +115,11 @@ public class JiraRedmineIntegration {
         });
         forDelete.stream().map(RedmineWorkLog::getId).forEach(redmineWorkLogId -> redmineClient.deleteIssueWorkLog(redmineWorkLogId, systemCred));
         forCreation.forEach(jiraWorkLog ->
-                redmineClient.createIssueWorkLog(
-                        JiraRedmineMapper.mapWorkLog(jiraWorkLog, redmainIssueKey),
-                        credentialService.getByJiraUser(jiraWorkLog.getAuthor().getKey())));
+                credentialService.getByJiraUser(jiraWorkLog.getAuthor().getKey())
+                        .ifPresent(c -> redmineClient.createIssueWorkLog(
+                                JiraRedmineMapper.mapWorkLog(jiraWorkLog, redmainIssueKey), c))
+
+        );
 
     }
 
@@ -126,8 +128,6 @@ public class JiraRedmineIntegration {
                 && JiraRedmineMapper.buildTimeLogComment(jiraWorkLog).equals(redmineWorkLog.getComments())
                 && Math.abs(redmineWorkLog.getHours() * 60 * 60 - jiraWorkLog.getTimeSpentSeconds()) < 60;
     }
-
-
 
 
 }

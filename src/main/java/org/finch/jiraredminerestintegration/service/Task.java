@@ -13,7 +13,7 @@ import org.springframework.stereotype.Service;
 public class Task {
     private final JiraRedmineIntegration jiraRedmineIntegration;
 
-    @Scheduled(fixedDelay = 1000 * 60 * 60)
+    @Scheduled(fixedDelay = 1000 * 60 * 10)
     public void syncByUpdateDate() {
         jiraRedmineIntegration.prepareAndUpdate();
     }

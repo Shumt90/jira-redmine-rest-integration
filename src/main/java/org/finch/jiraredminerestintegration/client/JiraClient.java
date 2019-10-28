@@ -49,7 +49,6 @@ public class JiraClient {
     private String issueWCommentsUrl;
 
 
-
     @SneakyThrows
     public boolean isConnected() {
         HttpResponse httpResponse = authClient.handleGetRequest(projectUrl);
@@ -69,17 +68,15 @@ public class JiraClient {
     @SneakyThrows
     public List<JiraIssue> searchUpdatedAfter(Date lastUpdate) {
 
-        String jql = URLEncoder.encode("project=S24 AND updated > '" + DATE_FORMAT.format(lastUpdate) + "'", StandardCharsets.UTF_8);
+        String jql = URLEncoder.encode("component in (backend, Backend) AND project=S24 AND updated > '" + DATE_FORMAT.format(lastUpdate) + "'", StandardCharsets.UTF_8);
 
         HttpResponse httpResponse = authClient.handleGetRequest(searchUrl + jql);
 
         String resp = httpResponse.parseAsString();
 
-        System.out.println(resp);
-
         SearchResult searchResult = objectMapper.readValue(resp, SearchResult.class);
 
-        log.info("get {} task for update: {}",searchResult.getIssues().size(), searchResult.getIssues().stream().map(JiraIssue::getKey).collect(toList()));
+        log.info("get {} task for update: {}", searchResult.getIssues().size(), searchResult.getIssues().stream().map(JiraIssue::getKey).collect(toList()));
         return searchResult.getIssues();
     }
 
@@ -100,9 +97,13 @@ public class JiraClient {
         HttpResponse httpResponse = authClient.handleGetRequest(String.format(issueWCommentsUrl, issueKey));
 
         String resp = httpResponse.parseAsString();
-        return objectMapper
+        var comments = objectMapper
                 .readValue(resp, SearchResult.class)
                 .getComments();
+
+        log.debug("get comments for {},{}", issueKey, comments);
+        return comments;
+
 
     }
 

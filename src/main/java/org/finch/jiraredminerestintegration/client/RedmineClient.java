@@ -66,7 +66,7 @@ public class RedmineClient {
 
         for (RedmineTask task : searchResult.getResults()) {
             if (task.getTitle().contains(jiraIssueId)) {
-
+                log.info("task title: {}", task.getTitle());
                 return getOneTask(task.getId(), credential);
             }
         }
@@ -121,6 +121,7 @@ public class RedmineClient {
             UriComponents uriComponents = UriComponentsBuilder.fromUriString(String.format(issueUpdateUrl, foundRedmineTaks.getId()))
                     .queryParam("key", credential.getRedmineKey()).build();
 
+            log.trace("update redmine issue {}, body: {}", foundRedmineTaks.getId(), issueUpdate);
             exchange(uriComponents, HttpMethod.PUT, new HttpEntity<>(issueUpdate));
 
             log.info(String.format("Task updated. jira: %s, redmine: %s", task.getKey(), foundRedmineTaks.getId()));
@@ -191,6 +192,7 @@ public class RedmineClient {
     public void createIssueWorkLog(TimeEntry timeEntry, UserMapping credential) {
         if (isNull(credential.getRedmineKey())) {
             log.warn("Redmine key not set, skip time log. jira user: {}, task: {}", credential.getId(), timeEntry.getIssueId());
+            return;
         }
 
         UriComponents uriComponents = UriComponentsBuilder.fromUriString(logTimeUrl)

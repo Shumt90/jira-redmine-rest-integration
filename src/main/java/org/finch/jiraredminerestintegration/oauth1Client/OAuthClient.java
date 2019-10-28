@@ -48,6 +48,7 @@ public class OAuthClient {
 
         HttpRequestFactory requestFactory = transport.createRequestFactory(parameters);
         HttpRequest request = requestFactory.buildGetRequest(jiraUrl);
+        request.setReadTimeout(1000 * 60 * 5);
         return request.execute();
     }
 }

@@ -14,7 +14,7 @@ import java.util.TimeZone;
 public class JiraRedmineRestIntegrationApplication {
 
     public static void main(String[] args) {
-        TimeZone.setDefault(TimeZone.getTimeZone("UTC"));
+        TimeZone.setDefault(TimeZone.getTimeZone("GMT+3"));
         HttpClientProvider.disableSslVerification();
         SpringApplication.run(JiraRedmineRestIntegrationApplication.class, args);
     }
