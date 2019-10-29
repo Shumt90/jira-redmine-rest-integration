@@ -101,7 +101,7 @@ public class JiraClient {
                 .readValue(resp, SearchResult.class)
                 .getComments();
 
-        log.debug("get comments for {},{}", issueKey, comments);
+        log.trace("get comments for {},{}", issueKey, comments);
         return comments;
 
 

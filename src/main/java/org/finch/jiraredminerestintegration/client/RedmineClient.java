@@ -4,6 +4,7 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import lombok.RequiredArgsConstructor;
 import lombok.SneakyThrows;
 import lombok.extern.slf4j.Slf4j;
+import org.finch.jiraredminerestintegration.exception.AmbiguousRedmineTask;
 import org.finch.jiraredminerestintegration.exception.RedmineServerException;
 import org.finch.jiraredminerestintegration.model.UserMapping;
 import org.finch.jiraredminerestintegration.model.jira.JiraIssue;
@@ -20,6 +21,7 @@ import org.springframework.web.client.RestTemplate;
 import org.springframework.web.util.UriComponents;
 import org.springframework.web.util.UriComponentsBuilder;
 
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
 
@@ -33,7 +35,7 @@ public class RedmineClient {
     private final ObjectMapper objectMapper;
     private final MappingService mappingService;
 
-    @Value("#{'${app.redmine.base-url}'+'/issues.json'}")
+    @Value("#{'${app.redmine.base-url}'+'/issues/%s.json'}")
     private String issueUrl;
 
     @Value("#{'${app.redmine.base-url}'+'/search.json'}")
@@ -52,7 +54,7 @@ public class RedmineClient {
     private String deleteTimeUrl;
 
     @SneakyThrows
-    public Optional<RedmineTask> searchTask(String jiraIssueId, UserMapping credential) {
+    private Optional<RedmineTask> searchTask(String jiraIssueId, UserMapping credential) {
         UriComponents uriComponents = UriComponentsBuilder.fromUriString(searchUrl)
                 .queryParam("key", credential.getRedmineKey())
                 .queryParam("limit", "100")
@@ -64,29 +66,34 @@ public class RedmineClient {
 
         SearchResult searchResult = objectMapper.readValue(responseEntity.getBody(), SearchResult.class);
 
+        List<String> appropriated = new ArrayList<>();
         for (RedmineTask task : searchResult.getResults()) {
             if (task.getTitle().contains(jiraIssueId)) {
-                log.info("task title: {}", task.getTitle());
-                return getOneTask(task.getId(), credential);
+
+                appropriated.add(task.getId());
+
             }
+        }
+
+        if (appropriated.size() == 1) {
+            return Optional.of(getOneTask(appropriated.get(0), credential));
+        } else if (appropriated.size() > 1) {
+            throw new AmbiguousRedmineTask(jiraIssueId);
         }
 
         return Optional.empty();
     }
 
     @SneakyThrows
-    public Optional<RedmineTask> getOneTask(String taskId, UserMapping credential) {
-        UriComponents uriComponents = UriComponentsBuilder.fromUriString(issueUrl)
+    private RedmineTask getOneTask(String taskId, UserMapping credential) {
+        UriComponents uriComponents = UriComponentsBuilder.fromUriString(String.format(issueUrl, taskId))
                 .queryParam("key", credential.getRedmineKey())
-                .queryParam("limit", "1")
-                .queryParam("offset", "0")
-                .queryParam("issue_id", taskId)
                 .build();
 
         ResponseEntity<String> responseEntity = exchange(uriComponents, HttpMethod.GET, new HttpEntity<>(new HttpHeaders()));
-        Issues issues = objectMapper.readValue(responseEntity.getBody(), Issues.class);
+        OneIssue oneIssue = objectMapper.readValue(responseEntity.getBody(), OneIssue.class);
 
-        return issues.getIssues().stream().findFirst();
+        return oneIssue.getIssue();
 
     }
 
@@ -147,13 +154,10 @@ public class RedmineClient {
 
         IssuePost updatedRedmineTask = objectMapper.readValue(responseEntity.getBody(), IssuePost.class);
 
-        log.debug(responseEntity.getBody());
-
         log.info(String.format("Task created. jira: %s, redmine: %s", task.getKey(), updatedRedmineTask.getIssue().getId()));
 
         return Integer.parseInt(updatedRedmineTask.getIssue().getId());
     }
-
 
 
     private ResponseEntity<String> exchange(UriComponents uriComponents, HttpMethod method, HttpEntity httpEntity) {

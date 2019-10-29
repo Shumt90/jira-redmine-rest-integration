@@ -65,6 +65,7 @@ public class JiraRedmineIntegration {
                     Optional<UserMapping> userMapping = userMappingService.getMapping(jiraUserKey);
                     String jiraComments = mappingService.mapComments(jiraClient.getComments(jiraIssue.getKey()));
                     log.trace("mapped comments: {}", jiraComments);
+                    log.trace("jira issue: {}", jiraIssue);
                     if (userMapping.isPresent()) {
 
                         int redmineId = redmineClient.upsetTask(userMapping.get(), jiraIssue, systemCred, jiraComments);
