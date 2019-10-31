@@ -14,4 +14,9 @@ public class UserMappingService {
     Optional<UserMapping> getMapping(String key) {
         return userMappingDAO.findById(key);
     }
+
+    Optional<UserMapping> getSystem() {
+        return userMappingDAO.getSystem();
+    }
+
 }

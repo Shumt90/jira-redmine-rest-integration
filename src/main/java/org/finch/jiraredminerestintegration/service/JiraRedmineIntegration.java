@@ -7,6 +7,7 @@ import org.finch.jiraredminerestintegration.client.JiraClient;
 import org.finch.jiraredminerestintegration.client.RedmineClient;
 import org.finch.jiraredminerestintegration.model.JiraRedmineMapper;
 import org.finch.jiraredminerestintegration.model.UserMapping;
+import org.finch.jiraredminerestintegration.model.jira.JiraUser;
 import org.finch.jiraredminerestintegration.model.jira.JiraWorkLog;
 import org.finch.jiraredminerestintegration.model.redmine.RedmineWorkLog;
 import org.springframework.stereotype.Service;
@@ -16,8 +17,6 @@ import java.util.ArrayList;
 import java.util.Date;
 import java.util.List;
 import java.util.Optional;
-
-import static java.util.Objects.nonNull;
 
 @AllArgsConstructor
 @Service
@@ -52,34 +51,39 @@ public class JiraRedmineIntegration {
     }
 
 
-    public void syncIssues(Date lastUpdate) {
+    private void syncIssues(Date lastUpdate) {
         log.info("sync from: {}", lastUpdate);
         UserMapping systemCred = credentialService.getSystemCred();
 
         jiraClient.searchUpdatedAfter(lastUpdate)
-                .stream()
-                .filter(issue -> nonNull(issue.getFields().getAssignee()))
                 .forEach(jiraIssue -> {
+                    try {
+                        log.info("handle {}", jiraIssue.getKey());
 
-                    String jiraUserKey = jiraIssue.getFields().getAssignee().getKey();
-                    Optional<UserMapping> userMapping = userMappingService.getMapping(jiraUserKey);
-                    String jiraComments = mappingService.mapComments(jiraClient.getComments(jiraIssue.getKey()));
-                    log.trace("mapped comments: {}", jiraComments);
-                    log.trace("jira issue: {}", jiraIssue);
-                    if (userMapping.isPresent()) {
+                        var assignee = Optional.ofNullable(jiraIssue.getFields().getAssignee())
+                                .map(JiraUser::getKey)
+                                .map(jiraUserKey -> userMappingService.getMapping(jiraUserKey))
+                                .orElseGet(userMappingService::getSystem);
 
-                        int redmineId = redmineClient.upsetTask(userMapping.get(), jiraIssue, systemCred, jiraComments);
-                        syncIssueWorkLog(jiraIssue.getKey(), redmineId);
+                        if (assignee.isPresent()) {
 
-                    } else {
+                            String jiraComments = mappingService.mapComments(jiraClient.getComments(jiraIssue.getKey()));
 
-                        log.debug("No mapping for user: {}. task missed: {}", jiraUserKey, jiraIssue.getKey());
+                            int redmineId = redmineClient.upsetTask(assignee.get(), jiraIssue, systemCred, jiraComments);
+                            syncIssueWorkLog(jiraIssue.getKey(), redmineId);
 
+                        } else {
+
+                            log.debug("No mapping for user: {}. task missed: {}", jiraIssue.getFields().getAssignee(), jiraIssue.getKey());
+
+                        }
+                    } catch (RuntimeException e) {
+                        log.error("Can't load {}", jiraIssue.getKey(), e);
                     }
                 });
     }
 
-    public void syncIssueWorkLog(String jiraIssueKey, int redmainIssueKey) {
+    private void syncIssueWorkLog(String jiraIssueKey, int redmainIssueKey) {
 
         log.debug("syncIssueWorkLog jira: {}, redmine: {}", jiraIssueKey, redmainIssueKey);
 
