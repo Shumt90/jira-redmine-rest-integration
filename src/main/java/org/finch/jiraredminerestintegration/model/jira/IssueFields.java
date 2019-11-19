@@ -15,4 +15,6 @@ public class IssueFields {
 
     private String updated;
 
+    private int timespent;
+
 }

@@ -56,6 +56,14 @@ public class JiraRedmineIntegration {
         UserMapping systemCred = credentialService.getSystemCred();
 
         jiraClient.searchUpdatedAfter(lastUpdate)
+                .stream()
+                .filter(jiraIssue -> {
+                    if (jiraIssue.getFields().getTimespent() > 0) {
+                        log.info("no time spent, skip: {}", jiraIssue);
+                        return false;
+                    }
+                    return true;
+                })
                 .forEach(jiraIssue -> {
                     try {
                         log.info("handle {}", jiraIssue.getKey());
