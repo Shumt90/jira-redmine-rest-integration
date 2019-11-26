@@ -58,7 +58,7 @@ public class JiraRedmineIntegration {
         jiraClient.searchUpdatedAfter(lastUpdate)
                 .stream()
                 .filter(jiraIssue -> {
-                    if (jiraIssue.getFields().getTimespent() > 0) {
+                    if (jiraIssue.getFields().getTimespent() == 0) {
                         log.info("no time spent, skip: {}", jiraIssue);
                         return false;
                     }
