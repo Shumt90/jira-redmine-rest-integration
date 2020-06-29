@@ -1,25 +1,29 @@
 package org.finch.jiraredminerestintegration.client;
 
+import static java.util.stream.Collectors.toList;
+import static org.finch.jiraredminerestintegration.model.DataFormat.DATE_FORMAT;
+
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.google.api.client.http.HttpResponse;
+import java.net.URLEncoder;
+import java.nio.charset.StandardCharsets;
+import java.util.ArrayList;
+import java.util.Date;
+import java.util.List;
 import lombok.RequiredArgsConstructor;
 import lombok.SneakyThrows;
 import lombok.extern.slf4j.Slf4j;
-import org.finch.jiraredminerestintegration.model.jira.*;
+import org.finch.jiraredminerestintegration.model.jira.JiraComment;
+import org.finch.jiraredminerestintegration.model.jira.JiraIssue;
+import org.finch.jiraredminerestintegration.model.jira.JiraWorkLog;
+import org.finch.jiraredminerestintegration.model.jira.SearchResult;
+import org.finch.jiraredminerestintegration.model.jira.Status;
 import org.finch.jiraredminerestintegration.oauth1Client.OAuthClient;
 import org.finch.jiraredminerestintegration.service.MappingService;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
-
-import java.net.URLEncoder;
-import java.nio.charset.StandardCharsets;
-import java.util.Date;
-import java.util.List;
-
-import static java.util.stream.Collectors.toList;
-import static org.finch.jiraredminerestintegration.model.DataFormat.DATE_FORMAT;
 
 
 @RequiredArgsConstructor
@@ -42,7 +46,7 @@ public class JiraClient {
     @Value("#{'${app.jira.base-url}'+'/rest/api/2/issue/'}")
     private String issueUrl;
 
-    @Value("#{'${app.jira.base-url}'+'/rest/api/2/issue/%s/worklog'}")
+    @Value("#{'${app.jira.base-url}'+'/rest/api/2/issue/%s/worklog?startAt=%s'}")
     private String issueWorkLogUrl;
 
     @Value("#{'${app.jira.base-url}'+'/rest/api/2/issue/%s/comment?maxResults=500'}")
@@ -109,12 +113,27 @@ public class JiraClient {
 
     @SneakyThrows
     public List<JiraWorkLog> getIssueWorkLog(String issueKey) {
-        HttpResponse httpResponse = authClient.handleGetRequest(String.format(issueWorkLogUrl, issueKey));
 
-        String resp = httpResponse.parseAsString();
-        return objectMapper
-                .readValue(resp, SearchResult.class)
-                .getWorklogs();
+        int read = 0;
+        int total;
+
+        var result = new ArrayList<JiraWorkLog>();
+
+        do {
+            HttpResponse httpResponse = authClient.handleGetRequest(String.format(issueWorkLogUrl, issueKey, read));
+            String resp = httpResponse.parseAsString();
+
+            var cur = objectMapper.readValue(resp, SearchResult.class);
+
+            total = cur.getTotal();
+            read += cur.getWorklogs().size();
+
+            result.addAll(cur.getWorklogs());
+        } while (read < total);
+
+        log.trace("get time log from jira. count: {}, data: {}", result.size(), result);
+
+        return result;
 
     }
 }

@@ -1,0 +1,15 @@
+version: '3.0'
+
+services:
+  jira-redmine-integration:
+    image: ${IMAGE}
+    network_mode: "host"
+    environment:
+      SPRING_PROFILES_ACTIVE: "prod"
+      JIRA_BASE_URL: "${JIRA_BASE_URL}"
+      REDMINE_BASE_URL: "${REDMINE_BASE_URL}"
+      SPRING_H2_CONSOLE_SETTINGS_WEB_ALLOW_OTHERS: "true"
+      DB_PASSWORD: "${DB_PASSWORD}"
+
+    volumes:
+      - /home/as/db:/db

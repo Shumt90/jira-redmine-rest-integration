@@ -1,22 +1,22 @@
 package org.finch.jiraredminerestintegration.service;
 
 
+import java.time.Instant;
+import java.util.ArrayList;
+import java.util.Date;
+import java.util.List;
+import java.util.Optional;
 import lombok.AllArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.finch.jiraredminerestintegration.client.JiraClient;
 import org.finch.jiraredminerestintegration.client.RedmineClient;
 import org.finch.jiraredminerestintegration.model.JiraRedmineMapper;
 import org.finch.jiraredminerestintegration.model.UserMapping;
+import org.finch.jiraredminerestintegration.model.jira.JiraIssue;
 import org.finch.jiraredminerestintegration.model.jira.JiraUser;
 import org.finch.jiraredminerestintegration.model.jira.JiraWorkLog;
 import org.finch.jiraredminerestintegration.model.redmine.RedmineWorkLog;
 import org.springframework.stereotype.Service;
-
-import java.time.Instant;
-import java.util.ArrayList;
-import java.util.Date;
-import java.util.List;
-import java.util.Optional;
 
 @AllArgsConstructor
 @Service
@@ -50,47 +50,56 @@ public class JiraRedmineIntegration {
         propertyClient.setLastUpdate(now);
     }
 
+    public void prepareAndUpdateOne(String id) {
+        UserMapping systemCred = credentialService.getSystemCred();
+        var issue = jiraClient.getIssue(id);
+        handleIssue(issue, systemCred);
+    }
+
+
+    private void handleIssue(JiraIssue jiraIssue, UserMapping systemCred) {
+        try {
+            log.info("handle {}", jiraIssue.getKey());
+
+            var assignee = Optional.ofNullable(jiraIssue.getFields().getAssignee())
+                .map(JiraUser::getKey)
+                .map(jiraUserKey -> userMappingService.getMapping(jiraUserKey))
+                .orElseGet(userMappingService::getSystem);
+
+            if (assignee.isPresent()) {
+
+                String jiraComments = mappingService.mapComments(jiraClient.getComments(jiraIssue.getKey()));
+
+                int redmineId = redmineClient.upsetTask(assignee.get(), jiraIssue, systemCred, jiraComments);
+                syncIssueWorkLog(jiraIssue.getKey(), redmineId);
+
+            } else {
+
+                log.debug("No mapping for user: {}. task missed: {}", jiraIssue.getFields().getAssignee(), jiraIssue.getKey());
+
+            }
+        } catch (RuntimeException e) {
+            log.error("Can't load {}", jiraIssue.getKey(), e);
+        }
+    }
 
     private void syncIssues(Date lastUpdate) {
         log.info("sync from: {}", lastUpdate);
         UserMapping systemCred = credentialService.getSystemCred();
 
         jiraClient.searchUpdatedAfter(lastUpdate)
-                .stream()
-                .filter(jiraIssue -> {
-                    if (jiraIssue.getFields().getTimespent() == 0) {
-                        log.info("no time spent, skip: {}", jiraIssue);
-                        return false;
-                    }
-                    return true;
-                })
-                .forEach(jiraIssue -> {
-                    try {
-                        log.info("handle {}", jiraIssue.getKey());
-
-                        var assignee = Optional.ofNullable(jiraIssue.getFields().getAssignee())
-                                .map(JiraUser::getKey)
-                                .map(jiraUserKey -> userMappingService.getMapping(jiraUserKey))
-                                .orElseGet(userMappingService::getSystem);
-
-                        if (assignee.isPresent()) {
-
-                            String jiraComments = mappingService.mapComments(jiraClient.getComments(jiraIssue.getKey()));
-
-                            int redmineId = redmineClient.upsetTask(assignee.get(), jiraIssue, systemCred, jiraComments);
-                            syncIssueWorkLog(jiraIssue.getKey(), redmineId);
-
-                        } else {
-
-                            log.debug("No mapping for user: {}. task missed: {}", jiraIssue.getFields().getAssignee(), jiraIssue.getKey());
-
-                        }
-                    } catch (RuntimeException e) {
-                        log.error("Can't load {}", jiraIssue.getKey(), e);
-                    }
-                });
+            .stream()
+            .filter(jiraIssue -> {
+                if (jiraIssue.getFields().getTimespent() == 0) {
+                    log.info("no time spent, skip: {}", jiraIssue);
+                    return false;
+                }
+                return true;
+            })
+            .forEach(i -> handleIssue(i, systemCred));
     }
 
+    //TODO a lot of loops
     private void syncIssueWorkLog(String jiraIssueKey, int redmainIssueKey) {
 
         log.debug("syncIssueWorkLog jira: {}, redmine: {}", jiraIssueKey, redmainIssueKey);
@@ -103,6 +112,29 @@ public class JiraRedmineIntegration {
         List<RedmineWorkLog> forDelete = new ArrayList<>();
         List<JiraWorkLog> forCreation = new ArrayList<>();
 
+        //delete duplication
+        jiraWorkLogs.forEach(jiraWorkLog -> {
+
+            List<RedmineWorkLog> cur = null;
+
+            int found = 0;
+            for (RedmineWorkLog redmineWorkLog : redmineWorkLogs) {
+                if (timeLogIsEquals(redmineWorkLog, jiraWorkLog)) {
+
+                    if (++found > 1) {
+                        if (cur == null) {
+                            cur = new ArrayList<>();
+                        }
+                        cur.add(redmineWorkLog);
+                    }
+                }
+            }
+            if (cur != null && cur.size() > 1) {
+                forDelete.addAll(cur);
+            }
+        });
+
+        //delete not existed
         redmineWorkLogs.forEach(redmineWorkLog -> {
             boolean found = false;
             for (JiraWorkLog jiraWorkLog : jiraWorkLogs) {
@@ -128,9 +160,9 @@ public class JiraRedmineIntegration {
         });
         forDelete.stream().map(RedmineWorkLog::getId).forEach(redmineWorkLogId -> redmineClient.deleteIssueWorkLog(redmineWorkLogId, systemCred));
         forCreation.forEach(jiraWorkLog ->
-                credentialService.getByJiraUser(jiraWorkLog.getAuthor().getKey())
-                        .ifPresent(c -> redmineClient.createIssueWorkLog(
-                                JiraRedmineMapper.mapWorkLog(jiraWorkLog, redmainIssueKey), c))
+                                credentialService.getByJiraUser(jiraWorkLog.getAuthor().getKey())
+                                    .ifPresent(c -> redmineClient.createIssueWorkLog(
+                                        JiraRedmineMapper.mapWorkLog(jiraWorkLog, redmainIssueKey), c))
 
         );
 
