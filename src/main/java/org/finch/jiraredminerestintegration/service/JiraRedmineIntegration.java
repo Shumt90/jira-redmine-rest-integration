@@ -112,28 +112,6 @@ public class JiraRedmineIntegration {
         List<RedmineWorkLog> forDelete = new ArrayList<>();
         List<JiraWorkLog> forCreation = new ArrayList<>();
 
-        //delete duplication
-        jiraWorkLogs.forEach(jiraWorkLog -> {
-
-            List<RedmineWorkLog> cur = null;
-
-            int found = 0;
-            for (RedmineWorkLog redmineWorkLog : redmineWorkLogs) {
-                if (timeLogIsEquals(redmineWorkLog, jiraWorkLog)) {
-
-                    if (++found > 1) {
-                        if (cur == null) {
-                            cur = new ArrayList<>();
-                        }
-                        cur.add(redmineWorkLog);
-                    }
-                }
-            }
-            if (cur != null && cur.size() > 1) {
-                forDelete.addAll(cur);
-            }
-        });
-
         //delete not existed
         redmineWorkLogs.forEach(redmineWorkLog -> {
             boolean found = false;
@@ -148,13 +126,15 @@ public class JiraRedmineIntegration {
         });
 
         jiraWorkLogs.forEach(jiraWorkLog -> {
-            boolean found = false;
+            int found = 0;
             for (RedmineWorkLog redmineWorkLog : redmineWorkLogs) {
                 if (timeLogIsEquals(redmineWorkLog, jiraWorkLog)) {
-                    found = true;
+                    if (++found > 1) {
+                        forDelete.add(redmineWorkLog);
+                    }
                 }
             }
-            if (!found) {
+            if (found == 0) {
                 forCreation.add(jiraWorkLog);
             }
         });
